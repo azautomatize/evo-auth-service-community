@@ -142,7 +142,7 @@ See `.env.example` for all available variables.
 
 ## Authentication examples
 
-### Bearer token (recommended)
+### Bearer token — interactive sessions only
 
 ```bash
 # Login
@@ -155,12 +155,36 @@ curl -X GET http://localhost:3001/api/v1/auth/me \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
+**One session per user.** Signing in revokes every Bearer token that user still
+holds; the response says how many in `data.revoked_sessions`. The displaced
+token answers `401 INVALID_TOKEN` / `Token has been revoked` on its next
+request. This is deliberate — a leaked token dies at the next sign-in.
+
+**Do not use login for a server-to-server integration.** Two processes that
+authenticate this way as the same user revoke each other on every cycle, and
+they also kick out that user's browser. Use an API access token (below).
+
+`POST /api/v1/auth/refresh` **consumes the credential it is given** and returns
+a new one: the refresh token from the `_evo_rt` cookie, or — when the cookie is
+not available, which is why the fallback exists — the access token in the
+`Authorization` header. Either way the caller must store the token that comes
+back. Calling refresh and discarding the answer ends the session.
+
+
 ### API access token (server-to-server)
+
+This is the credential for integrations. It is not a Doorkeeper token: signing
+in does not revoke it, and it has no refresh cycle.
+
 
 ```bash
 curl -X GET http://localhost:3001/api/v1/users \
-  -H "api_access_token: YOUR_API_TOKEN"
+  -H "Api-Access-Token: YOUR_API_TOKEN"
 ```
+
+Mind the spelling: `Api-Access-Token`, with hyphens. nginx drops headers whose
+names contain underscores unless `underscores_in_headers` is on, so
+`api_access_token` can vanish before it reaches the app.
 
 ### OAuth 2.0 Bearer token (third-party apps)
 

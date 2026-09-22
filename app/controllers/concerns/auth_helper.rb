@@ -63,13 +63,24 @@ module AuthHelper
     )
   end
 
+  # One session per user: signing in revokes every token the user still holds.
+  # This is deliberate (a stolen token dies at the next sign-in) but it is also
+  # why a server integration that authenticates by logging in kicks out the
+  # browser — and gets kicked out by it. Integrations must use an API access
+  # token (`Api-Access-Token`), which this method does not touch: those live in
+  # the `access_tokens` table, not in Doorkeeper's.
+  #
+  # CRM-664: returns how many sessions were displaced so the caller can say so
+  # instead of the older session just dying in silence.
   def invalidate_user_tokens(user)
     # Bust validation cache before revoking
     active_tokens = Doorkeeper::AccessToken.where(resource_owner_id: user.id, revoked_at: nil)
     active_tokens.pluck(:token).each { |t| TokenValidationService.invalidate_cache_for_token(t) }
 
     # Revoke all existing tokens for this user
-    active_tokens.each(&:revoke)
+    revoked = active_tokens.to_a
+    revoked.each(&:revoke)
+    revoked.size
   end
 
   def is_secure_request?
@@ -370,7 +381,9 @@ module AuthHelper
       data: {
         user: UserSerializer.full(current_user),
         accounts: accounts,
-        token: token
+        token: token,
+        # CRM-664: how many sessions this sign-in revoked. 0 on a normal login.
+        revoked_sessions: @revoked_sessions.to_i
       },
       message: 'Login successful'
     )
