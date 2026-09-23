@@ -63,12 +63,19 @@ module AuthHelper
     )
   end
 
-  # One session per user: signing in revokes every token the user still holds.
-  # This is deliberate (a stolen token dies at the next sign-in) but it is also
-  # why a server integration that authenticates by logging in kicks out the
-  # browser — and gets kicked out by it. Integrations must use an API access
-  # token (`Api-Access-Token`), which this method does not touch: those live in
-  # the `access_tokens` table, not in Doorkeeper's.
+  # One session per user, on the Doorkeeper axis: signing in revokes every
+  # Doorkeeper Bearer token the user still holds. This is deliberate (a stolen
+  # Bearer dies at the next sign-in) but it is also why a server integration
+  # that authenticates by logging in kicks out the browser — and gets kicked out
+  # by it. Integrations must use an API access token (`Api-Access-Token`).
+  #
+  # Two credential axes it does NOT touch, both on purpose:
+  #   - `AccessToken` (the `access_tokens` table) — the integration credential.
+  #   - the devise_token_auth session in `users.tokens`, issued by
+  #     `POST /auth/sign_in` (social login). It is not a Bearer token and this
+  #     sweep never sees it, so "every token" is not literally true across the
+  #     service. Sweeping it too would sign the user out of social login on
+  #     every Doorkeeper login — a product change, not this one.
   #
   # CRM-664: returns how many sessions were displaced so the caller can say so
   # instead of the older session just dying in silence.
