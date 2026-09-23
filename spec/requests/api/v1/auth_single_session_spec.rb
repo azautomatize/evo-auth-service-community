@@ -82,4 +82,60 @@ RSpec.describe 'POST /api/v1/auth/login — single session (CRM-664)', type: :re
     get '/api/v1/auth/me', headers: { 'Api-Access-Token' => api_token.token }
     expect(response).to have_http_status(:ok)
   end
+
+  # Finishing MFA goes through the same `render_successful_login`, so it carries
+  # the same sweep and the same count. Deduced from reading once; exercised here,
+  # because "same method, therefore same behaviour" is the kind of assumption
+  # that hides a nil.
+  describe 'the MFA path' do
+    let(:mfa_user) do
+      User.create!(
+        name: 'MFA User',
+        email: "single-session-mfa-#{SecureRandom.hex(4)}@example.com",
+        password: password,
+        password_confirmation: password,
+        confirmed_at: Time.current,
+        otp_required_for_login: true,
+        mfa_method: :totp,
+        mfa_confirmed_at: Time.current
+      )
+    end
+
+    def temp_token_for(user)
+      JWT.encode(
+        { user_id: user.id, email: user.email, exp: 10.minutes.from_now.to_i },
+        Rails.application.secret_key_base
+      )
+    end
+
+    def finish_mfa(user)
+      allow_any_instance_of(User).to receive(:validate_otp).and_return(true)
+      post '/api/v1/mfa/verify',
+           params: { email: user.email, code: '000000', temp_token: temp_token_for(user) },
+           as: :json
+      expect(response).to have_http_status(:ok)
+      JSON.parse(response.body)['data']
+    end
+
+    it 'reports the displaced sessions after finishing MFA, like a plain login' do
+      first = finish_mfa(mfa_user)
+      expect(first['revoked_sessions']).to eq(0)
+
+      second = finish_mfa(mfa_user)
+      expect(second['revoked_sessions']).to eq(1)
+    end
+
+    it 'revokes the previous token on the first request, like a plain login' do
+      first_token = finish_mfa(mfa_user).dig('token', 'access_token')
+
+      get '/api/v1/auth/me', headers: { 'Authorization' => "Bearer #{first_token}" }
+      expect(response).to have_http_status(:ok)
+
+      finish_mfa(mfa_user)
+
+      get '/api/v1/auth/me', headers: { 'Authorization' => "Bearer #{first_token}" }
+      expect(response).to have_http_status(:unauthorized)
+      expect(JSON.parse(response.body).dig('error', 'message')).to eq('Token has been revoked')
+    end
+  end
 end
