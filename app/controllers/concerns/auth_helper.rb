@@ -63,22 +63,9 @@ module AuthHelper
     )
   end
 
-  # One session per user, on the Doorkeeper axis: signing in revokes every
-  # Doorkeeper Bearer token the user still holds. This is deliberate (a stolen
-  # Bearer dies at the next sign-in) but it is also why a server integration
-  # that authenticates by logging in kicks out the browser — and gets kicked out
-  # by it. Integrations must use an API access token (`Api-Access-Token`).
-  #
-  # Two credential axes it does NOT touch, both on purpose:
-  #   - `AccessToken` (the `access_tokens` table) — the integration credential.
-  #   - the devise_token_auth session in `users.tokens`, issued by
-  #     `POST /auth/sign_in` (social login). It is not a Bearer token and this
-  #     sweep never sees it, so "every token" is not literally true across the
-  #     service. Sweeping it too would sign the user out of social login on
-  #     every Doorkeeper login — a product change, not this one.
-  #
-  # CRM-664: returns how many sessions were displaced so the caller can say so
-  # instead of the older session just dying in silence.
+  # Revokes every Doorkeeper Bearer token of the user and returns how many were
+  # still live. API access tokens and the legacy devise_token_auth session
+  # (`users.tokens`, POST /auth/sign_in) are not touched.
   def invalidate_user_tokens(user)
     # Bust validation cache before revoking
     active_tokens = Doorkeeper::AccessToken.where(resource_owner_id: user.id, revoked_at: nil)
@@ -86,8 +73,10 @@ module AuthHelper
 
     # Revoke all existing tokens for this user
     revoked = active_tokens.to_a
+    # Past the refresh lifetime the session was already dead; not a displacement.
+    displaced = revoked.count { |t| !t.refresh_token_expired? }
     revoked.each(&:revoke)
-    revoked.size
+    displaced
   end
 
   def is_secure_request?
@@ -389,7 +378,6 @@ module AuthHelper
         user: UserSerializer.full(current_user),
         accounts: accounts,
         token: token,
-        # CRM-664: how many sessions this sign-in revoked. 0 on a normal login.
         revoked_sessions: @revoked_sessions.to_i
       },
       message: 'Login successful'

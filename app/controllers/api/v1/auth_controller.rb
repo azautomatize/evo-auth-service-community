@@ -398,10 +398,6 @@ class Api::V1::AuthController < Api::BaseController
 
   def render_successful_login(user)
     attempt_setup(user)
-    # CRM-664: one session per user — this sign-in revokes the ones already
-    # open. The count travels in the response so a client can tell the user it
-    # displaced another session, instead of that session just dying quietly on
-    # its next request.
     @revoked_sessions = invalidate_user_tokens(user)
 
     # Create new OAuth token

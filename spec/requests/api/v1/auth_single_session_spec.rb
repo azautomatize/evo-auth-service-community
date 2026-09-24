@@ -2,16 +2,11 @@
 
 require 'rails_helper'
 
-# CRM-664. One session per user is the posture: each sign-in revokes the
-# tokens the user still holds. Nothing here changes that — what it pins is that
-# the posture is enforced on the FIRST request made with a displaced token, and
-# that the sign-in says how many sessions it displaced.
-#
-# Before the fix, `validate_bearer_token` (the cache-miss path) did not check
-# `revoked?`, so the displaced token was answered 200 once and re-cached. The
-# session only really died on the second request — which is exactly the
-# "integrations knock each other out, sometimes" report.
-RSpec.describe 'POST /api/v1/auth/login — single session (CRM-664)', type: :request do
+# Signing in revokes the user's other Bearer tokens. The displaced token must be
+# refused on its first request, which takes the cache-miss validation path.
+RSpec.describe 'POST /api/v1/auth/login — single session', type: :request do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:password) { 'Test123!@' }
 
   let(:user) do
@@ -62,6 +57,30 @@ RSpec.describe 'POST /api/v1/auth/login — single session (CRM-664)', type: :re
     expect(JSON.parse(response.body).dig('error', 'message')).to eq('Token has been revoked')
   end
 
+  it 'does not count a session past its refresh lifetime as displaced' do
+    login
+
+    travel 31.days do
+      expect(login['revoked_sessions']).to eq(0)
+    end
+  end
+
+  # No cookie: the Authorization fallback an integration outside the SPA uses.
+  it 'rotates the credential on refresh and keeps the caller signed in' do
+    old_token = login.dig('token', 'access_token')
+    cookies.delete('_evo_rt')
+
+    post '/api/v1/auth/refresh', headers: { 'Authorization' => "Bearer #{old_token}" }
+    expect(response).to have_http_status(:ok)
+    new_token = JSON.parse(response.body).dig('data', 'access_token')
+
+    me_with(new_token)
+    expect(response).to have_http_status(:ok)
+
+    me_with(old_token)
+    expect(response).to have_http_status(:unauthorized)
+  end
+
   it 'keeps the newest session working' do
     login
     newest = login.dig('token', 'access_token')
@@ -70,9 +89,6 @@ RSpec.describe 'POST /api/v1/auth/login — single session (CRM-664)', type: :re
     expect(response).to have_http_status(:ok)
   end
 
-  # The whole point of the posture: a server integration must not authenticate
-  # by logging in. An API access token is a different table and a different
-  # credential, and signing in does not touch it.
   it 'does not revoke an API access token when the user signs in' do
     api_token = AccessToken.create!(owner: user, name: 'integration', scopes: 'read write')
 
@@ -83,10 +99,6 @@ RSpec.describe 'POST /api/v1/auth/login — single session (CRM-664)', type: :re
     expect(response).to have_http_status(:ok)
   end
 
-  # Finishing MFA goes through the same `render_successful_login`, so it carries
-  # the same sweep and the same count. Deduced from reading once; exercised here,
-  # because "same method, therefore same behaviour" is the kind of assumption
-  # that hides a nil.
   describe 'the MFA path' do
     let(:mfa_user) do
       User.create!(

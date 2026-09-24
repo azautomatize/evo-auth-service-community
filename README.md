@@ -156,17 +156,16 @@ curl -X GET http://localhost:3001/api/v1/auth/me \
 ```
 
 **One session per user — on the Bearer axis.** Signing in revokes every
-Doorkeeper Bearer token that user still holds; the response says how many in
-`data.revoked_sessions`. The displaced token answers `401 INVALID_TOKEN` /
+Doorkeeper Bearer token that user still holds; `data.revoked_sessions` in the
+response says how many of them were still live (refreshable). The displaced token answers `401 INVALID_TOKEN` /
 `Token has been revoked` on its next request. This is deliberate: a leaked
 Bearer token dies at the next sign-in.
 
-**What the sweep does not reach:** the `devise_token_auth` session issued by
-`POST /auth/sign_in` (social login), which lives in `users.tokens` and is not a
-Bearer token. That credential survives a Doorkeeper sign-in. Revoking it too
-would sign the user out of social login every time they log in here, so it is
-left alone deliberately — but "one session per user" is a statement about
-Bearer tokens, not about every credential this service issues.
+**What the sweep does not reach:** the legacy `devise_token_auth` session
+issued by `POST /auth/sign_in` — with email and password, or with the SSO token
+that completes a social login. It lives in `users.tokens`, is not a Bearer
+token, and survives a Doorkeeper sign-in. "One session per user" is a statement
+about Bearer tokens, not about every credential this service issues.
 
 **Do not use login for a server-to-server integration.** Two processes that
 authenticate this way as the same user revoke each other on every cycle, and

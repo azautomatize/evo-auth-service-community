@@ -156,11 +156,7 @@ class TokenValidationService
     @token = Doorkeeper::AccessToken.by_token(@used_token)
     raise InvalidToken, "Invalid bearer token" unless @token
     raise ExpiredToken, "Token has expired" if @token.expired?
-    # CRM-664: `by_token` is a plain `find_by(token:)` — it returns revoked rows
-    # too. The cached path checks this (see verify_token_not_revoked!), this one
-    # did not, so the first request made with a token that a concurrent login
-    # had just revoked was answered 200 and re-cached; only the second one got
-    # 401. Same check, same message, on both paths.
+    # `by_token` also returns revoked rows.
     raise InvalidToken, "Token has been revoked" if @token.revoked?
 
     user = User.find(@token.resource_owner_id)
