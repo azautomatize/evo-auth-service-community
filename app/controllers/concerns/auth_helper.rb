@@ -63,13 +63,20 @@ module AuthHelper
     )
   end
 
+  # Revokes every Doorkeeper Bearer token of the user and returns how many were
+  # still live. API access tokens and the legacy devise_token_auth session
+  # (`users.tokens`, POST /auth/sign_in) are not touched.
   def invalidate_user_tokens(user)
     # Bust validation cache before revoking
     active_tokens = Doorkeeper::AccessToken.where(resource_owner_id: user.id, revoked_at: nil)
     active_tokens.pluck(:token).each { |t| TokenValidationService.invalidate_cache_for_token(t) }
 
     # Revoke all existing tokens for this user
-    active_tokens.each(&:revoke)
+    revoked = active_tokens.to_a
+    # Past the refresh lifetime the session was already dead; not a displacement.
+    displaced = revoked.count { |t| !t.refresh_token_expired? }
+    revoked.each(&:revoke)
+    displaced
   end
 
   def is_secure_request?
@@ -370,7 +377,8 @@ module AuthHelper
       data: {
         user: UserSerializer.full(current_user),
         accounts: accounts,
-        token: token
+        token: token,
+        revoked_sessions: @revoked_sessions.to_i
       },
       message: 'Login successful'
     )

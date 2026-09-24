@@ -156,6 +156,8 @@ class TokenValidationService
     @token = Doorkeeper::AccessToken.by_token(@used_token)
     raise InvalidToken, "Invalid bearer token" unless @token
     raise ExpiredToken, "Token has expired" if @token.expired?
+    # `by_token` also returns revoked rows.
+    raise InvalidToken, "Token has been revoked" if @token.revoked?
 
     user = User.find(@token.resource_owner_id)
 

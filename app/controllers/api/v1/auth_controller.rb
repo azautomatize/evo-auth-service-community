@@ -398,7 +398,7 @@ class Api::V1::AuthController < Api::BaseController
 
   def render_successful_login(user)
     attempt_setup(user)
-    invalidate_user_tokens(user)
+    @revoked_sessions = invalidate_user_tokens(user)
 
     # Create new OAuth token
     oauth_token = create_oauth_token(user)
