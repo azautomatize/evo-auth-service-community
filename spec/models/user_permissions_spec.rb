@@ -40,7 +40,12 @@ RSpec.describe User, type: :model do
     end
 
     it 'still includes the kept basic reads' do
-      expect(User::BASIC_READ_PERMISSIONS).to include('accounts.read', 'labels.read', 'dashboard.read', 'teams.read')
+      expect(User::BASIC_READ_PERMISSIONS).to include('accounts.read', 'labels.read', 'teams.read')
+    end
+
+    it 'dashboard.read is a catalog permission, not a basic one' do
+      expect(User::BASIC_READ_PERMISSIONS).not_to include('dashboard.read')
+      expect(ResourceActionsConfig.valid_permission?('dashboard.read')).to be(true)
     end
 
     it 'a user with no roles does NOT have users.read via inheritance' do

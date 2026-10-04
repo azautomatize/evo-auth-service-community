@@ -26,12 +26,13 @@ require 'rails_helper'
 RSpec.describe ResourceActionsConfig do
   describe 'catalog size after hygiene' do
     # 332 -> 333: CRM-210 added users.reset_password (standalone, no coarse write).
-    it 'exposes exactly 333 permission keys' do
-      expect(described_class.all_permission_keys.size).to eq(333)
+    # 333 -> 334: dashboard.read virou recurso do catalogo (saiu de BASIC_READ_PERMISSIONS).
+    it 'exposes exactly 334 permission keys' do
+      expect(described_class.all_permission_keys.size).to eq(334)
     end
 
-    it 'exposes exactly 51 resources' do
-      expect(described_class.all_resources.size).to eq(51)
+    it 'exposes exactly 52 resources' do
+      expect(described_class.all_resources.size).to eq(52)
     end
 
     it 'adds a manageable, non-system coarse write to resources with a granular write (EVO-2127)' do

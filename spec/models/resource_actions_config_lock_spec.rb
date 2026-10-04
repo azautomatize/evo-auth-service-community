@@ -18,8 +18,6 @@ RSpec.describe ResourceActionsConfig, '.api_format lock metadata' do
   end
 
   it 'flags every catalog-present BASIC_READ_PERMISSIONS key as basic' do
-    # dashboard.read is basic but has no catalog resource (never rendered in
-    # the editor), so it needs no lock; only the keys that DO appear must lock.
     catalog_basic = User::BASIC_READ_PERMISSIONS.select { |k| described_class.valid_permission?(k) }
     expect(catalog_basic).to include('accounts.read', 'labels.read', 'teams.read')
 

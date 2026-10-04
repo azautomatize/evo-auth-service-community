@@ -40,6 +40,17 @@ class ResourceActionsConfig
       }
     },
 
+    # Dashboard (pagina inicial com as metricas). Admin e quem tem
+    # conversations.read_all veem a conta inteira; os demais papeis veem so as
+    # conversas atribuidas a eles (escopo aplicado no CRM).
+    dashboard: {
+      name: 'Dashboard',
+      description: 'Home dashboard with conversation metrics',
+      actions: {
+        read: { name: 'View', description: 'View the dashboard (non-admin roles see only their own conversations)' }
+      }
+    },
+
     # Account Management
     accounts: {
       name: 'Accounts',
