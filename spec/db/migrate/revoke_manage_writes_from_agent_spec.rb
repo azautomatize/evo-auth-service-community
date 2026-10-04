@@ -38,16 +38,15 @@ RSpec.describe RevokeManageWritesFromAgent do
       )
     end
 
-    it 'keeps what the chat needs: read of both, macros.execute, and the labels/canned writes' do
+    it 'keeps what the chat needs: read of both and macros.execute' do
       agent = Role.find_by!(key: 'agent')
       to_pre_fix_state(agent)
 
       migration.up
 
-      expect(keys(agent)).to include(
-        'macros.read', 'macros.execute', 'message_templates.read',
-        'labels.create', 'labels.update', 'canned_responses.create', 'canned_responses.update'
-      )
+      # Escritas de etiquetas/respostas rapidas/etapas sairam do seed com
+      # RestrictAgentRoleToAttendance; aqui so se confere o que o seed ainda da.
+      expect(keys(agent)).to include('macros.read', 'macros.execute', 'message_templates.read')
     end
 
     it 'does not touch a custom (non-system) role that holds the same keys' do

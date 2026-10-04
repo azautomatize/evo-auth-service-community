@@ -46,9 +46,11 @@ RSpec.describe RevokeSharedAssetDeletesFromAgent do
 
       # macros/message_templates create+update left the seed with CRM-70; what
       # the seed still grants must survive this migration untouched.
+      # Escritas de etiquetas/respostas rapidas/etapas sairam do seed com
+      # RestrictAgentRoleToAttendance; aqui so se confere o que o seed ainda da.
       expect(keys(agent)).to include(
-        'labels.read', 'labels.create', 'labels.update',
-        'canned_responses.read', 'canned_responses.create', 'canned_responses.update',
+        'labels.read',
+        'canned_responses.read',
         'message_templates.read',
         'macros.read', 'macros.execute'
       )

@@ -85,9 +85,10 @@ agent_permissions = [
   'conversations.mute', 'conversations.unmute', 'conversations.transcript', 'conversations.toggle_status',
   'conversations.toggle_priority', 'conversations.toggle_typing_status', 'conversations.update_last_seen',
   'conversations.unread', 'conversations.custom_attributes', 'conversations.attachments', 'conversations.inbox_assistant',
-  'conversations.import',
+  # conversations.import / contacts.import / contacts.export sao operacoes de massa,
+  # do administrador (RestrictAgentRoleToAttendance).
   'contacts.read', 'contacts.create', 'contacts.update',
-  'contacts.active', 'contacts.search', 'contacts.filter', 'contacts.import', 'contacts.export',
+  'contacts.active', 'contacts.search', 'contacts.filter',
   'contacts.contactable_inboxes', 'contacts.destroy_custom_attributes', 'contacts.avatar',
   # CRM-166: the agent writes attribute VALUES but had no read on the definitions,
   # so GET /custom_attribute_definitions 403'd and read-only screens rendered "no
@@ -99,10 +100,9 @@ agent_permissions = [
   # the agent moves/creates cards without the manager's power to reshape/archive the
   # funnel. See PipelineItemsController + PipelinePolicy#update_items? in the CRM (CRM-178).
   'pipeline_items.update',
-  # pipeline_stages.delete is NOT granted: deleting a funnel stage is a destructive
-  # restructuring of the shared pipeline, not attendance. Create/update stay for the
-  # kanban experience.
-  'pipeline_stages.read', 'pipeline_stages.create', 'pipeline_stages.update',
+  # Etapas do funil sao estrutura compartilhada (jornadas e automacoes dependem
+  # delas): o agente so le. Mover card e pipeline_items.update.
+  'pipeline_stages.read',
   # accounts.update is administrative (Settings > Account) and deliberately
   # NOT granted; PATCH /api/v1/account enforces it.
   'accounts.read',
@@ -114,8 +114,11 @@ agent_permissions = [
   # the chat, while `create`/`update` and the Settings screen belong to
   # `<resource>.manage`, granted to admin roles only. Deletes of every shared
   # asset stay out (CRM-190). Personal macros an agent already owns keep working.
-  'labels.read', 'labels.create', 'labels.update',
-  'canned_responses.read', 'canned_responses.create', 'canned_responses.update',
+  # Etiquetas e respostas rapidas: o agente USA (aplicar etiqueta e
+  # conversations.update), mas criar/editar e do administrador — etiquetas
+  # disparam automacoes (RestrictAgentRoleToAttendance).
+  'labels.read',
+  'canned_responses.read',
   'message_templates.read',
   'macros.read', 'macros.execute',
   # teams powers the in-chat "Assign team" picker (GET /teams), so the read is

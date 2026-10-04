@@ -44,11 +44,11 @@ RSpec.describe 'db/seeds/rbac.rb', type: :model do
       expect(agent_permissions).not_to include('pipelines.delete')
     end
 
-    it 'keeps stage read/create/update for the kanban experience but NOT the destructive stage delete' do
-      %w[pipeline_stages.read pipeline_stages.create pipeline_stages.update].each do |key|
-        expect(agent_permissions).to include(key)
+    it 'keeps only stage read — the funnel structure belongs to the administrator' do
+      expect(agent_permissions).to include('pipeline_stages.read')
+      %w[pipeline_stages.create pipeline_stages.update pipeline_stages.delete].each do |key|
+        expect(agent_permissions).not_to include(key)
       end
-      expect(agent_permissions).not_to include('pipeline_stages.delete')
     end
   end
 
@@ -83,16 +83,23 @@ RSpec.describe 'db/seeds/rbac.rb', type: :model do
       expect(agent_permissions).not_to include('accounts.create')
     end
 
-    it 'keeps read/create/update for labels and canned responses but NOT their destructive delete (CRM-190)' do
-      # Deleting a shared asset affects the whole account (e.g. deleting a label
-      # removes it from every conversation) — a manager action, not attendance.
-      # By product decision (CRM-70) the agent manages its own labels and canned
-      # responses, so create/update stay.
-      %w[labels.read labels.create labels.update
-         canned_responses.read canned_responses.create canned_responses.update].each do |key|
+    it 'keeps only read for labels and canned responses — managing them is administrative' do
+      %w[labels.read canned_responses.read].each do |key|
         expect(agent_permissions).to include(key)
       end
-      %w[labels.delete macros.delete canned_responses.delete message_templates.delete].each do |key|
+      %w[labels.create labels.update labels.delete
+         canned_responses.create canned_responses.update canned_responses.delete
+         macros.delete message_templates.delete].each do |key|
+        expect(agent_permissions).not_to include(key)
+      end
+    end
+
+    it 'grants the own-profile permissions and no bulk import/export' do
+      %w[profiles.read profiles.update profiles.update_avatar profiles.update_password
+         profiles.manage_notifications].each do |key|
+        expect(agent_permissions).to include(key)
+      end
+      %w[contacts.import contacts.export conversations.import].each do |key|
         expect(agent_permissions).not_to include(key)
       end
     end
@@ -266,8 +273,8 @@ RSpec.describe 'db/seeds/rbac.rb', type: :model do
       expect(ResourceActionsConfig.valid_permission?('conversations.import')).to be true
     end
 
-    it 'is granted to the agent role (mirrors contacts.import precedent)' do
-      expect(agent_permissions).to include('conversations.import')
+    it 'is NOT granted to the agent role (bulk import is administrative)' do
+      expect(agent_permissions).not_to include('conversations.import')
     end
 
     it 'is granted to account_owner via all_permission_keys' do

@@ -48,7 +48,7 @@ RSpec.describe RevokeDestructiveKeysFromAgent do
       expect(keys(agent)).to include(
         'conversations.read', 'conversations.create', 'conversations.update',
         'conversations.toggle_status', 'contacts.read', 'contacts.create',
-        'teams.read', 'pipeline_stages.read', 'pipeline_stages.create', 'pipeline_stages.update'
+        'teams.read', 'pipeline_stages.read'
       )
     end
 
