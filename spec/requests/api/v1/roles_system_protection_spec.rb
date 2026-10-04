@@ -104,18 +104,32 @@ RSpec.describe 'Roles system protection', type: :request do
     end
   end
 
-  # A system role's permission set is immutable; a custom role's is not.
+  # A system role's permission set is immutable — except the `agent` role's
+  # (EDITABLE_SYSTEM_ROLE_KEYS); a custom role's is not.
   describe 'PUT /api/v1/roles/:id/bulk_update_permissions' do
-    it 'denies retuning a system role even for a super_admin (deny)' do
-      before_keys = system_role.reload.permission_keys
+    it 'denies retuning a locked system role even for a super_admin (deny)' do
+      locked = Role.find_by!(key: 'account_owner')
+      before_keys = locked.reload.permission_keys
 
-      put "/api/v1/roles/#{system_role.id}/bulk_update_permissions",
+      put "/api/v1/roles/#{locked.id}/bulk_update_permissions",
           params: { permission_keys: %w[ai_agents.read ai_agents.write] },
           headers: headers_for(admin_user)
 
       expect(response).to have_http_status(:forbidden)
       expect(response.body).to include('permission set of a system role')
-      expect(system_role.reload.permission_keys).to match_array(before_keys) # unchanged
+      expect(locked.reload.permission_keys).to match_array(before_keys) # unchanged
+    end
+
+    it 'lets a super_admin retune the agent system role (grant)' do
+      keys = system_role.reload.permission_keys - %w[message_templates.read] + %w[dashboard.read]
+
+      put "/api/v1/roles/#{system_role.id}/bulk_update_permissions",
+          params: { permission_keys: keys },
+          headers: headers_for(admin_user)
+
+      expect(response).to have_http_status(:ok)
+      expect(system_role.reload.permission_keys).to include('dashboard.read')
+      expect(system_role.permission_keys).not_to include('message_templates.read')
     end
 
     it 'still lets a super_admin retune a CUSTOM role (grant — the guard is narrow)' do

@@ -3,6 +3,9 @@
 class Api::V1::RolesController < Api::V1::BaseController
   include RoleHelper
 
+  # Papeis de sistema cujo conjunto de permissoes pode ser editado no perfil.
+  EDITABLE_SYSTEM_ROLE_KEYS = %w[agent].freeze
+
   before_action :check_authorization
   before_action :load_role, only: [:show, :update, :destroy, :bulk_update_permissions]
   before_action :enforce_role_scope!, only: [:show, :update, :destroy, :bulk_update_permissions]
@@ -77,7 +80,13 @@ class Api::V1::RolesController < Api::V1::BaseController
     # A system role's permission set belongs to db/seeds/rbac.rb, which rewrites it on
     # every run: an accepted edit would answer 200 and be reverted. The installation
     # owner is matched by key as well, since its rows are not always `system: true`.
-    if @role.system? || @role.key == RbacGrantReconciler::ROLE_KEY
+    #
+    # Excecao: o papel `agent` e editavel. O seed so roda em instalacao nova (no boot
+    # roda apenas db:migrate), e o CRM reconhece o atendente pela chave `agent`
+    # (tarefas de pipeline, macros pessoais...), entao duplica-lo como papel
+    # customizado perderia esses comportamentos.
+    if (@role.system? && !EDITABLE_SYSTEM_ROLE_KEYS.include?(@role.key)) ||
+       @role.key == RbacGrantReconciler::ROLE_KEY
       message =
         if @role.key == RbacGrantReconciler::ROLE_KEY
           'The installation owner role holds the full permission catalog by invariant ' \
